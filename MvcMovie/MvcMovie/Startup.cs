@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Builder;
+﻿using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
-using Microsoft.EntityFrameworkCore;
 using MvcMovie.Models;
 
 namespace MvcMovie
@@ -26,13 +22,16 @@ namespace MvcMovie
 
         public IConfigurationRoot Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
+        /// <summary>
+        /// This method gets called by the runtime. Use this method to add services to the container.
+        /// </summary>
+        /// <param name="services">Dependency Injection container.</param>
         public void ConfigureServices(IServiceCollection services)
         {
             // Add framework services.
             services.AddMvc();
 
-            services.AddDbContext<MvcMovieContext>(options =>
+            services.AddDbContext<MvcMovieContext>(options =>         // Dependency Injection
                     options.UseSqlServer(Configuration.GetConnectionString("MvcMovieContext")));
         }
 
@@ -60,6 +59,8 @@ namespace MvcMovie
                     name: "default",
                     template: "{controller=Home}/{action=Index}/{id?}");
             });
+
+            SeedMovie.Initialize(app.ApplicationServices);
         }
     }
 }

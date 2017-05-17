@@ -1,11 +1,9 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.EntityFrameworkCore;
 using MvcMovie.Models;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace MvcMovie.Controllers
 {
@@ -15,13 +13,36 @@ namespace MvcMovie.Controllers
 
         public MoviesController(MvcMovieContext context)
         {
-            _context = context;    
+            _context = context;     // Inject DBContext into the controller    
         }
 
         // GET: Movies
-        public async Task<IActionResult> Index()
+        // Avoid modify model in HttpGet method. It cause security risk.
+        // Provide search functionality
+        public async Task<IActionResult> Index(string movieGenre, string searchString)
         {
-            return View(await _context.Movie.ToListAsync());
+            var movieGenres = from m in _context.Movie
+                              orderby m.Genre
+                              select m.Genre;
+
+            var movies = from repository in _context.Movie
+                         select repository;
+
+            if(movies != null && !string.IsNullOrEmpty(searchString))
+            {
+                movies = movies.Where(m => m.Title.Contains(searchString));
+            }
+
+            if(!string.IsNullOrEmpty(movieGenre))
+            {
+                movies = movies.Where(m => m.Genre.Equals(movieGenre, System.StringComparison.OrdinalIgnoreCase));
+            }
+
+            var movieGenreView = new MovieGenreViewModel();
+            movieGenreView.Genres = new SelectList(await movieGenres.Distinct().ToListAsync());
+            movieGenreView.Movies = await movies.ToListAsync();
+
+            return View(movieGenreView);
         }
 
         // GET: Movies/Details/5
@@ -34,6 +55,7 @@ namespace MvcMovie.Controllers
 
             var movie = await _context.Movie
                 .SingleOrDefaultAsync(m => m.ID == id);
+
             if (movie == null)
             {
                 return NotFound();
@@ -53,9 +75,9 @@ namespace MvcMovie.Controllers
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("ID,Title,ReleaseDate,Genre,Price")] Movie movie)
+        public async Task<IActionResult> Create([Bind("ID,Title,ReleaseDate,Genre,Price, Rating")] Movie movie)
         {
-            if (ModelState.IsValid)
+            if (ModelState.IsValid)         // If client JS validation is turned off, this method is called to do validation in server.
             {
                 _context.Add(movie);
                 await _context.SaveChangesAsync();
@@ -85,14 +107,16 @@ namespace MvcMovie.Controllers
         // more details see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(int id, [Bind("ID,Title,ReleaseDate,Genre,Price")] Movie movie)
+        public async Task<IActionResult> Edit(int id, [Bind("ID,Title,ReleaseDate,Genre,Price, Rating")] Movie movie)
         {
             if (id != movie.ID)
             {
                 return NotFound();
             }
 
-            if (ModelState.IsValid)
+            // Check the post form has valid data to alter the model 'Movie'.
+            // When JS is enabled in client, the client side check will validate use input on form.
+            if (ModelState.IsValid)      
             {
                 try
                 {
@@ -135,7 +159,7 @@ namespace MvcMovie.Controllers
 
         // POST: Movies/Delete/5
         [HttpPost, ActionName("Delete")]
-        [ValidateAntiForgeryToken]
+        [ValidateAntiForgeryToken]          // Use this attribute to avoid forgery
         public async Task<IActionResult> DeleteConfirmed(int id)
         {
             var movie = await _context.Movie.SingleOrDefaultAsync(m => m.ID == id);
